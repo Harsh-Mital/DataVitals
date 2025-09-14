@@ -75,3 +75,6 @@ if uploaded_file is not None:
         generate_report(data, figures, anomaly_box_plot, anomalies, pdf_file)
         with open(pdf_file, "rb") as f:
             st.download_button("Download Report", f, file_name=pdf_file)
+
+
+#streamlit run app/main.py
