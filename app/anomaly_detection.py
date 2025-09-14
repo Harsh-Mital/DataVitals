@@ -1,57 +1,53 @@
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from scipy.stats import zscore
 
-# Detect anomalies using Z-Score
-def detect_anomalies(df, threshold=3):
-    numeric_df = df.select_dtypes(include=[np.number])
-    if numeric_df.empty:
-        return pd.DataFrame()  # No numeric data
-
-    z_scores = np.abs(zscore(numeric_df, nan_policy="omit"))
-    anomalies = numeric_df[(z_scores > threshold).any(axis=1)]
+# --- Detect anomalies using Z-score > 3 ---
+def detect_anomalies(data):
+    numeric_cols = data.select_dtypes(include="number").columns
+    anomalies = pd.DataFrame()
+    
+    for col in numeric_cols:
+        col_data = data[col]
+        z_scores = (col_data - col_data.mean()) / col_data.std(ddof=0)
+        mask = abs(z_scores) > 3
+        mask = mask.fillna(False)  # align with data length
+        outliers = data.loc[mask, [col]].copy()
+        if not outliers.empty:
+            outliers["Anomaly_Column"] = col
+            anomalies = pd.concat([anomalies, outliers], ignore_index=True)
+    
     return anomalies
 
-# Scatter plot with anomalies highlighted
-def anomaly_scatter_plot(df, x_col, y_col, anomalies):
+# --- Scatter plot for anomalies ---
+def anomaly_scatter_plot(data, x_col, y_col, anomalies):
     fig, ax = plt.subplots(figsize=(6, 4))
-
-    # Ensure both are numeric
-    if not (pd.api.types.is_numeric_dtype(df[x_col]) and pd.api.types.is_numeric_dtype(df[y_col])):
-        ax.text(0.5, 0.5, f"No numeric data in '{x_col}' or '{y_col}'", 
-                ha="center", va="center", fontsize=12)
-        return fig
-
-    ax.scatter(df[x_col], df[y_col], label="Normal", alpha=0.6)
+    ax.scatter(data[x_col], data[y_col], label="Data", alpha=0.6)
     
-    if not anomalies.empty and x_col in anomalies.columns and y_col in anomalies.columns:
-        ax.scatter(anomalies[x_col], anomalies[y_col], color="red", label="Anomaly")
+    if not anomalies.empty and x_col in data.columns and y_col in data.columns:
+        mask = anomalies[x_col].notna() & anomalies[y_col].notna()
+        ax.scatter(anomalies.loc[mask, x_col], anomalies.loc[mask, y_col],
+                   color="red", label="Anomalies", alpha=0.8)
+        ax.set_title(f"Scatter Plot with Anomalies ({x_col} vs {y_col})")
+        ax.legend()
+    else:
+        ax.set_title(f"Scatter Plot ({x_col} vs {y_col})")
     
     ax.set_xlabel(x_col)
     ax.set_ylabel(y_col)
-    ax.set_title(f"Scatter Plot: {x_col} vs {y_col}")
-    ax.legend()
     return fig
 
-# Box plot with anomalies highlighted
-def anomaly_box_plot(df, column, anomalies):
+# --- Box plot for anomalies ---
+def anomaly_box_plot(data, col, anomalies):
     fig, ax = plt.subplots(figsize=(6, 4))
-
-    # Ensure column is numeric
-    if not pd.api.types.is_numeric_dtype(df[column]):
-        ax.text(0.5, 0.5, f"No numeric data in '{column}'", 
-                ha="center", va="center", fontsize=12)
-        return fig
-
-    # Plot boxplot
-    sns.boxplot(y=df[column], ax=ax, color="lightblue")
-
-    # Overlay anomalies if present
-    if not anomalies.empty and column in anomalies.columns:
-        ax.scatter([0]*len(anomalies), anomalies[column], color="red", label="Anomaly")
+    ax.boxplot(data[col].dropna(), vert=False)
+    
+    if not anomalies.empty and col in anomalies["Anomaly_Column"].values:
+        anomaly_values = anomalies[anomalies["Anomaly_Column"] == col][col]
+        ax.scatter(anomaly_values, [1]*len(anomaly_values), color="red", label="Anomalies")
+        ax.set_title(f"Box Plot with Anomalies ({col})")
         ax.legend()
-
-    ax.set_title(f"Box Plot for {column}")
+    else:
+        ax.set_title(f"Box Plot ({col})")
+    
     return fig
