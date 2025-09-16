@@ -77,4 +77,4 @@ if uploaded_file is not None:
             st.download_button("Download Report", f, file_name=pdf_file)
 
 
-#streamlit run app/main.py~
+#streamlit run app/main.py
